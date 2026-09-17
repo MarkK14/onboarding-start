@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Mark Khairallah
+ * Copyright (c) 2026 Mark Khairallah
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -36,6 +36,20 @@ module tt_um_uwasic_onboarding_mark_khairallah (
     .en_reg_pwm_15_8(en_reg_pwm_15_8),
     .pwm_duty_cycle(pwm_duty_cycle),
     .out({uio_out, uo_out})
+  );
+
+  // Instantiate the SPI module
+  spi_peripheral spi_peripheral_inst (
+    .clk(clk),
+    .rst_n(rst_n),
+    .nCS(ui_in[2]),
+    .SCLK(ui_in[0]),
+    .COPI(ui_in[1]),
+    .en_reg_out_7_0(en_reg_out_7_0),
+    .en_reg_out_15_8(en_reg_out_15_8),
+    .en_reg_pwm_7_0(en_reg_pwm_7_0),
+    .en_reg_pwm_15_8(en_reg_pwm_15_8),
+    .pwm_duty_cycle(pwm_duty_cycle)
   );
 
   // List all unused inputs to prevent warnings
