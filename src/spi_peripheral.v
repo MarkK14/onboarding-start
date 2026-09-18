@@ -16,8 +16,17 @@ module spi_peripheral (
     output reg [7:0] en_reg_pwm_7_0,
     output reg [7:0] en_reg_pwm_15_8,
     output reg [7:0] pwm_duty_cycle
-    reg sclk_sync0, sclk_sync1, ncs_sync0, ncs_sync1, copi_sync0, copi_sync1;
 );
+
+    reg sclk_sync0, sclk_sync1, ncs_sync0, ncs_sync1, copi_sync0, copi_sync1;
+    reg [4:0] bit_counter;
+    reg [15:0] shift_reg;
+
+    wire sclk_rising_edge, ncs_falling_edge, ncs_rising_edge;
+
+    assign sclk_rising_edge = sclk_sync0 & ~sclk_sync1;
+    assign ncs_falling_edge = ncs_sync1 & ~ncs_sync0;
+    assign ncs_rising_edge = ncs_sync0 & ~ncs_sync1;
 
 
     always @(posedge clk or negedge rst_n)begin
@@ -50,3 +59,12 @@ module spi_peripheral (
         end
     end
 
+    always @(posedge clk or negedge rst_n)begin
+        if (!rst_n) begin
+            bit_counter <=0;
+            shift_reg <=0;
+        end else if(sclk_rising_edge & (bit_counter<16))begin
+            shift_reg <= {shift_reg[14:0], copi_sync1};
+            bit_counter <=bit_counter + 1;
+        end
+    end
