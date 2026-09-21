@@ -68,3 +68,22 @@ module spi_peripheral (
             bit_counter <=bit_counter + 1;
         end
     end
+
+    always @(posedge clk or negedge rst_n)begin
+        if (!rst_n) begin
+            en_reg_out_15_8 <=0;
+            en_reg_out_7_0 <=0;
+            en_reg_pwm_15_8 <=0;
+            en_reg_pwm_7_0 <=0;
+            pwm_duty_cycle <=0;
+        end else if(ncs_rising_edge & (bit_counter == 16) & shift_reg[15])begin
+            case(shift_reg[14:8])
+                7'h00:en_reg_out_7_0<=shift_reg[7:0];
+                7'h01:en_reg_out_15_8<=shift_reg[7:0];
+                7'h02:en_reg_pwm_7_0<=shift_reg[7:0];
+                7'h03:en_reg_pwm_15_8<=shift_reg[7:0];
+                7'h04:pwm_duty_cycle<=shift_reg[7:0];
+                default: ;
+            endcase
+        end
+    end
