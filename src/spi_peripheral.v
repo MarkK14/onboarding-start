@@ -63,6 +63,8 @@ module spi_peripheral (
         if (!rst_n) begin
             bit_counter <=0;
             shift_reg <=0;
+        end else if(ncs_falling_edge)begin
+            bit_counter<=0;
         end else if(sclk_rising_edge & (bit_counter<16))begin
             shift_reg <= {shift_reg[14:0], copi_sync1};
             bit_counter <=bit_counter + 1;
