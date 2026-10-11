@@ -4,6 +4,7 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
+from cocotb.triggers import FallingEdge
 from cocotb.triggers import ClockCycles
 from cocotb.types import Logic
 from cocotb.types import LogicArray
@@ -182,5 +183,50 @@ async def test_pwm_freq(dut):
 
 @cocotb.test()
 async def test_pwm_duty(dut):
-    # Write your test here
+# Set the clock period to 100 ns (10 MHz)
+    clock = Clock(dut.clk, 100, units="ns")
+    cocotb.start_soon(clock.start())
+
+    # Reset
+    dut._log.info("Reset")
+    dut.ena.value = 1
+    ncs = 1
+    bit = 0
+    sclk = 0
+    dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 5)
+
+    dut._log.info("Test project behavior")
+    #Turn on and activate PWM
+    await send_spi_transaction(dut, 1, 0x00, 0x01)  # Write transaction
+    await send_spi_transaction(dut, 1, 0x02, 0x01)  # Write transaction
+
+    #50% test
+    await send_spi_transaction(dut,1,0x04,0x80)     # Write transaction
+    await RisingEdge(dut.uo_out[0])
+    t1 = cocotb.utils.get_sim_time(units="ns")
+    await FallingEdge(dut.uo_out[0])
+    t2 = cocotb.utils.get_sim_time(units="ns")
+    await RisingEdge(dut.uo_out[0])
+    t3 = cocotb.utils.get_sim_time(units="ns")
+    dut_cyc = ((t2-t1)/(t3-t1))*100
+    assert(49<dut_cyc<51), "Duty cycle not equal to 50% when set to 50%" 
+
+    #0% test
+    await send_spi_transaction(dut,1,0x04,0x00)     # Write transaction
+    for x in range(3):
+        x0 = dut.uo_out[0].value
+        assert(x0 == 0), "Duty cycle not equal to 0% when set to 0%"
+        await ClockCycles(dut.clk, 5)
+
+    #100% test
+    await send_spi_transaction(dut,1,0x04,0xFF)     # Write transaction
+    for x in range(3):
+        x0 = dut.uo_out[0].value
+        assert(x0 == 1), "Duty cycle not equal to 100% when set to 100%"
+        await ClockCycles(dut.clk, 5)
+    
     dut._log.info("PWM Duty Cycle test completed successfully")
