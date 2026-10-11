@@ -84,6 +84,29 @@ async def send_spi_transaction(dut, r_w, address, data):
     await ClockCycles(dut.clk, 600)
     return ui_in_logicarray(ncs, bit, sclk)
 
+async def wait_for_rising(dut, max_cycles=10000):
+    """Poll uo_out[0] each clk cycle; return sim time (ns) of the 0->1 transition.
+    (Icarus can't register RisingEdge callbacks on a bit-select, so we poll.)"""
+    prev = int(dut.uo_out.value) & 1
+    for _ in range(max_cycles):
+        await ClockCycles(dut.clk, 1)
+        cur = int(dut.uo_out.value) & 1
+        if cur and not prev:
+            return cocotb.utils.get_sim_time(units="ns")
+        prev = cur
+    raise AssertionError("Timed out waiting for rising edge on uo_out[0]")
+
+async def wait_for_falling(dut, max_cycles=10000):
+    """Poll uo_out[0] each clk cycle; return sim time (ns) of the 1->0 transition."""
+    prev = int(dut.uo_out.value) & 1
+    for _ in range(max_cycles):
+        await ClockCycles(dut.clk, 1)
+        cur = int(dut.uo_out.value) & 1
+        if prev and not cur:
+            return cocotb.utils.get_sim_time(units="ns")
+        prev = cur
+    raise AssertionError("Timed out waiting for falling edge on uo_out[0]")
+
 @cocotb.test()
 async def test_spi(dut):
     dut._log.info("Start SPI test")
@@ -171,19 +194,17 @@ async def test_pwm_freq(dut):
     dut._log.info("Test project behavior")
     await send_spi_transaction(dut, 1, 0x00, 0x01)  # Write transaction
     await send_spi_transaction(dut, 1, 0x02, 0x01)  # Write transaction
-    await RisingEdge(dut.uo_out[0])
-    t1 = cocotb.utils.get_sim_time(units="ns")
-    await RisingEdge(dut.uo_out[0])
-    t2 = cocotb.utils.get_sim_time(units="ns")
+    t1 = await wait_for_rising(dut)
+    t2 = await wait_for_rising(dut)
     freq = 1e9/(t2-t1)
-    assert (2970<freq<3030), "PWM Frequency not within range 3 kHz ±1%"
+    assert (2970<freq<3030), f"PWM Frequency not within range 3 kHz ±1% (got {freq:.1f} Hz)"
     dut._log.info("PWM Frequency test completed successfully")
 
 
 
 @cocotb.test()
 async def test_pwm_duty(dut):
-# Set the clock period to 100 ns (10 MHz)
+    # Set the clock period to 100 ns (10 MHz)
     clock = Clock(dut.clk, 100, units="ns")
     cocotb.start_soon(clock.start())
 
@@ -206,14 +227,11 @@ async def test_pwm_duty(dut):
 
     #50% test
     await send_spi_transaction(dut,1,0x04,0x80)     # Write transaction
-    await RisingEdge(dut.uo_out[0])
-    t1 = cocotb.utils.get_sim_time(units="ns")
-    await FallingEdge(dut.uo_out[0])
-    t2 = cocotb.utils.get_sim_time(units="ns")
-    await RisingEdge(dut.uo_out[0])
-    t3 = cocotb.utils.get_sim_time(units="ns")
+    t1 = await wait_for_rising(dut)
+    t2 = await wait_for_falling(dut)
+    t3 = await wait_for_rising(dut)
     dut_cyc = ((t2-t1)/(t3-t1))*100
-    assert(49<dut_cyc<51), "Duty cycle not equal to 50% when set to 50%" 
+    assert(49<dut_cyc<51), f"Duty cycle not equal to 50% when set to 50% (got {dut_cyc:.2f}%)"
 
     #0% test
     await send_spi_transaction(dut,1,0x04,0x00)     # Write transaction
