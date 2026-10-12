@@ -194,6 +194,7 @@ async def test_pwm_freq(dut):
     dut._log.info("Test project behavior")
     await send_spi_transaction(dut, 1, 0x00, 0x01)  # Write transaction
     await send_spi_transaction(dut, 1, 0x02, 0x01)  # Write transaction
+    await send_spi_transaction(dut, 1, 0x04, 0x80)  # 50% duty so the signal actually toggles
     t1 = await wait_for_rising(dut)
     t2 = await wait_for_rising(dut)
     freq = 1e9/(t2-t1)
